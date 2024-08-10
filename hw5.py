@@ -13,40 +13,32 @@ class QuestionnaireAnalysis:
 
     def __init__(self, data_fname: Union[pathlib.Path, str]):
         self.data_fname=pathlib.Path(data_fname)
+        if not self.data_fname.exists():
+            raise ValueError(f"File {self.data_fname} does not exist.")
         
     def read_data(self):
         """Reads the json data located in self.data_fname into memory, to
         the attribute self.data.
         """
-        for file in self.data_fname.iterdir():
-            if str(file).endswith(".json"):
-                self.data=json.loads(file.read_text())
+        if self.data_fname.is_dir():
+            for file in self.data_fname.iterdir():
+                if str(file).endswith(".json"):
+                    self.data=json.loads(file.read_text())
+        else:
+            if str(self.data_fname).endswith(".json"):
+                self.data = json.loads(self.data_fname.read_text())
+        self.data = pd.DataFrame(self.data)
+
 
     def show_age_distrib(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Calculates and plots the age distribution of the participants.
-
-    Returns
-    -------
-    hist : np.ndarray
-    Number of people in a given bin
-    bins : np.ndarray
-    Bin edges
-        """
-        ages=[]
+        """Calculates the age distribution of the participants."""
         self.read_data()
-        for i in self.data:
-            if isinstance(i["age"],Union[int,float]):
-                ages.append(i["age"])
+        ages = self.data["age"].dropna().astype(float)
+        bins = np.arange(0, 101, 10)
+        hist, _ = np.histogram(ages, bins=bins)
+        
+        return hist, bins
 
-        bins=np.linspace([0,10],[90,100],10)
-        nums=np.zeros(shape=(len(bins),))
-
-        for i, (num,bin) in enumerate(zip(nums,bins)):
-            for age in ages:
-                if age in range(int(bin[0]),int(bin[1])):
-                    nums[i]+=1
-
-        return (nums,bins)
     
     def remove_rows_without_mail(self) -> pd.DataFrame:
         """Checks self.data for rows with invalid emails, and removes them.
@@ -57,12 +49,14 @@ class QuestionnaireAnalysis:
     A corrected DataFrame, i.e. the same table but with the erroneous rows removed and
     the (ordinal) index after a reset.
         """
+        
         self.read_data()
-        df=pd.DataFrame(self.data)
+        df=self.data
         df=df[df["email"].str.count('@')==1]
         df=df[~df["email"].str.startswith(("@","."))]
         df=df[~df["email"].str.endswith(("@","."))]
         df[~df["email"].str.contains(r'@\.')]
+        
         return df.reset_index(drop=True)
     
 
@@ -79,7 +73,7 @@ class QuestionnaireAnalysis:
             Row indices of the students that their new grades were generated
             """    
         self.read_data() 
-        df=pd.DataFrame(self.data)
+        df=self.data
         qs=["q1","q2","q3","q4","q5"]
         df_qs=df.loc[:,qs]
         index=np.where(df_qs=="nan")[0]
@@ -108,7 +102,7 @@ class QuestionnaireAnalysis:
             A new DF with a new column - "score".
         """
         self.read_data() 
-        df=pd.DataFrame(self.data)
+        df=self.data
         qs=["q1","q2","q3","q4","q5"]
         df_qs=df.loc[:,qs]
         df_qs.replace("nan", np.nan, inplace=True)
@@ -119,3 +113,5 @@ class QuestionnaireAnalysis:
                 df.loc[i,"score"]=math.trunc(row[1].mean())
         df['score'] = df['score'].astype(pd.UInt8Dtype())
         return df
+
+
