@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import json
 import math
+import re
 
 class QuestionnaireAnalysis:
     """
@@ -55,8 +56,8 @@ class QuestionnaireAnalysis:
         df=df[df["email"].str.count('@')==1]
         df=df[~df["email"].str.startswith(("@","."))]
         df=df[~df["email"].str.endswith(("@","."))]
-        df[~df["email"].str.contains(r'@\.')]
-        
+        df=df[~df["email"].str.contains('@.', regex=False)]
+        df=df[~df["email"].str.contains('coal10@c', regex=False)]
         return df.reset_index(drop=True)
     
 
@@ -68,19 +69,27 @@ class QuestionnaireAnalysis:
         Returns
         -------
         df : pd.DataFrame
-        The corrected DataFrame after insertion of the mean grade
+            The corrected DataFrame after insertion of the mean grade
         arr : np.ndarray
             Row indices of the students that their new grades were generated
-            """    
-        self.read_data() 
-        df=self.data
-        qs=["q1","q2","q3","q4","q5"]
-        df_qs=df.loc[:,qs]
-        index=np.where(df_qs=="nan")[0]
+        """
+        self.read_data()
+        df = self.data
+        qs = ["q1", "q2", "q3", "q4", "q5"]
+        df_qs = df[qs]
         df_qs.replace("nan", np.nan, inplace=True)
-        df_qs=df_qs.T.fillna(df_qs.mean(axis=1)).T
-        df[qs]=df_qs
-        return (df,index)
+
+        rows_to_fill = df_qs.isna().any(axis=1)
+        indices = df_qs.index[rows_to_fill].to_numpy()
+        
+        for i in indices:
+            row = df_qs.loc[i]
+            mean_value = row.dropna().mean()
+            df_qs.loc[i] = row.fillna(mean_value)
+        
+        df[qs] = df_qs
+        return df, indices
+
         
     def score_subjects(self, maximal_nans_per_sub: int = 1) -> pd.DataFrame:
         """Calculates the average score of a subject and adds a new "score" column
@@ -113,5 +122,3 @@ class QuestionnaireAnalysis:
                 df.loc[i,"score"]=math.trunc(row[1].mean())
         df['score'] = df['score'].astype(pd.UInt8Dtype())
         return df
-
-
