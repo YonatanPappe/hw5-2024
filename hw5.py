@@ -32,7 +32,15 @@ class QuestionnaireAnalysis:
 
 
     def show_age_distrib(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Calculates the age distribution of the participants."""
+        """Calculates and plots the age distribution of the participants.
+
+        Returns
+        -------
+        hist : np.ndarray
+          Number of people in a given bin
+        bins : np.ndarray
+          Bin edges
+            """
         self.read_data()
         ages = self.data["age"].dropna().astype(float)
         bins = np.arange(0, 101, 10)
@@ -57,7 +65,7 @@ class QuestionnaireAnalysis:
         df=df[~df["email"].str.startswith(("@","."))]
         df=df[~df["email"].str.endswith(("@","."))]
         df=df[~df["email"].str.contains('@.', regex=False)]
-        df=df[~df["email"].str.contains('coal10@c', regex=False)]
+        df=df[df["email"].str.contains(r'\.', regex=True)]
         return df.reset_index(drop=True)
     
 
@@ -121,4 +129,4 @@ class QuestionnaireAnalysis:
             else:
                 df.loc[i,"score"]=math.trunc(row[1].mean())
         df['score'] = df['score'].astype(pd.UInt8Dtype())
-        return df
+        return df 
